@@ -90,13 +90,41 @@ threadIdContract<TeamsThreadId>({
     fn: (id) => contractAdapter.isDM(id),
     dmThreadId: contractAdapter.encodeThreadId({
       conversationId: "a]8:orgid:user-id-here",
+      conversationType: "personal",
       serviceUrl: "https://smba.trafficmanager.net/teams/",
     }),
     nonDmThreadId: contractAdapter.encodeThreadId({
-      conversationId: "19:abc@thread.tacv2",
+      conversationId: "a:group-chat-id",
+      conversationType: "groupChat",
       serviceUrl: "https://smba.trafficmanager.net/teams/",
     }),
   },
+});
+
+describe("Teams conversation type routing", () => {
+  it("keeps the legacy ID when the conversation type agrees with its prefix", () => {
+    const personal = contractAdapter.encodeThreadId({
+      conversationId: "a:personal-conversation",
+      conversationType: "personal",
+      serviceUrl: "https://smba.trafficmanager.net/teams/",
+    });
+    const legacyPersonal = contractAdapter.encodeThreadId({
+      conversationId: "a:personal-conversation",
+      serviceUrl: "https://smba.trafficmanager.net/teams/",
+    });
+    const channel = contractAdapter.encodeThreadId({
+      conversationId: "19:channel@thread.tacv2",
+      conversationType: "channel",
+      serviceUrl: "https://smba.trafficmanager.net/teams/",
+    });
+    const legacyChannel = contractAdapter.encodeThreadId({
+      conversationId: "19:channel@thread.tacv2",
+      serviceUrl: "https://smba.trafficmanager.net/teams/",
+    });
+
+    expect(personal).toBe(legacyPersonal);
+    expect(channel).toBe(legacyChannel);
+  });
 });
 
 describe("ESM compatibility", () => {

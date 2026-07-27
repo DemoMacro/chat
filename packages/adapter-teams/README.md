@@ -205,6 +205,10 @@ TEAMS_API_URL=...        # Optional, for GCC-High or sovereign-cloud deployments
 | Fetch channel info | Yes (requires Graph permissions) |
 | Post channel message | Yes |
 
+## Conversation routing
+
+Incoming thread IDs preserve the Teams conversation type when the legacy ID-prefix heuristic would route it incorrectly. This keeps correctly classified IDs stable while selecting the buffered fallback for group chats whose IDs begin with `a:`. Thread IDs created by older adapter versions remain supported.
+
 ## User lookup (`getUser`)
 
 The adapter supports looking up user profiles via the Microsoft Graph API. To enable it:

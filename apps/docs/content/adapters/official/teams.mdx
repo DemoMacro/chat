@@ -219,6 +219,10 @@ The Teams SDK reads a generic `CLIENT_SECRET` environment variable and prefers i
 
 ## Advanced
 
+### Conversation routing
+
+Incoming thread IDs preserve the Teams conversation type when the legacy ID-prefix heuristic would route it incorrectly. This keeps correctly classified IDs stable while selecting the buffered fallback for group chats whose IDs begin with `a:`. Thread IDs created by older adapter versions remain supported.
+
 ### User lookup
 
 The adapter supports looking up user profiles via the Microsoft Graph API. To enable it:

@@ -64,7 +64,12 @@ import {
   modalToAdaptiveCard,
   parseDialogSubmitValues,
 } from "./modals";
-import { decodeThreadId, encodeThreadId, isDM } from "./thread-id";
+import {
+  decodeThreadId,
+  encodeThreadId,
+  isDM,
+  parseConversationType,
+} from "./thread-id";
 import type {
   TeamsAdapterConfig,
   TeamsChannelContext,
@@ -258,7 +263,13 @@ export class TeamsAdapter implements Adapter<TeamsThreadId, unknown> {
 
     // Cache DM context for Graph API chat ID resolution
     const aadObjectId = (activity.from as { aadObjectId?: string }).aadObjectId;
-    if (aadObjectId && this.app.id && !baseChannelId.startsWith("19:")) {
+    const conversationType = parseConversationType(
+      activity.conversation?.conversationType
+    );
+    const isPersonalConversation = conversationType
+      ? conversationType === "personal"
+      : !baseChannelId.startsWith("19:");
+    if (aadObjectId && this.app.id && isPersonalConversation) {
       const dmContext: TeamsDmContext = {
         type: "dm",
         graphChatId: `19:${aadObjectId}_${this.app.id}@unq.gbl.spaces`,
@@ -352,11 +363,7 @@ export class TeamsAdapter implements Adapter<TeamsThreadId, unknown> {
       return;
     }
 
-    const threadId = this.encodeThreadId({
-      conversationId: activity.conversation?.id || "",
-      serviceUrl: activity.serviceUrl || "",
-      replyToId: activity.replyToId,
-    });
+    const threadId = this.threadIdFromActivity(activity);
 
     const message = this.parseTeamsMessage(activity, threadId);
     const user = activity.from?.aadObjectId
@@ -430,10 +437,7 @@ export class TeamsAdapter implements Adapter<TeamsThreadId, unknown> {
       return;
     }
 
-    const threadId = this.encodeThreadId({
-      conversationId: activity.conversation?.id || "",
-      serviceUrl: activity.serviceUrl || "",
-    });
+    const threadId = this.threadIdFromActivity(activity);
 
     // Auto-submit fan-out: fire onAction for each input value
     if (actionValue.actionId === AUTO_SUBMIT_ACTION_ID) {
@@ -496,10 +500,7 @@ export class TeamsAdapter implements Adapter<TeamsThreadId, unknown> {
       return;
     }
 
-    const threadId = this.encodeThreadId({
-      conversationId: activity.conversation?.id || "",
-      serviceUrl: activity.serviceUrl || "",
-    });
+    const threadId = this.threadIdFromActivity(activity);
 
     // Auto-submit fan-out: fire onAction for each input value
     if (actionData.actionId === AUTO_SUBMIT_ACTION_ID) {
@@ -603,10 +604,7 @@ export class TeamsAdapter implements Adapter<TeamsThreadId, unknown> {
     const activity = ctx.activity;
     const actionData = (activity.value?.data || {}) as ActionSubmitData;
 
-    const threadId = this.encodeThreadId({
-      conversationId: activity.conversation?.id || "",
-      serviceUrl: activity.serviceUrl || "",
-    });
+    const threadId = this.threadIdFromActivity(activity);
 
     let resolveModal: (result: {
       modal: ModalElement;
@@ -753,10 +751,7 @@ export class TeamsAdapter implements Adapter<TeamsThreadId, unknown> {
     const messageIdMatch = conversationId.match(MESSAGEID_CAPTURE_PATTERN);
     const messageId = messageIdMatch?.[1] || activity.replyToId || "";
 
-    const threadId = this.encodeThreadId({
-      conversationId,
-      serviceUrl: activity.serviceUrl || "",
-    });
+    const threadId = this.threadIdFromActivity(activity);
 
     const user = {
       userId: activity.from?.id || "unknown",
@@ -1574,6 +1569,7 @@ export class TeamsAdapter implements Adapter<TeamsThreadId, unknown> {
 
       return this.encodeThreadId({
         conversationId,
+        conversationType: "personal",
         serviceUrl,
       });
     } catch (error) {
@@ -1597,13 +1593,15 @@ export class TeamsAdapter implements Adapter<TeamsThreadId, unknown> {
   }
 
   channelIdFromThreadId(threadId: string): string {
-    const { conversationId, serviceUrl } = this.decodeThreadId(threadId);
+    const { conversationId, conversationType, serviceUrl } =
+      this.decodeThreadId(threadId);
     const baseConversationId = conversationId.replace(
       MESSAGEID_STRIP_PATTERN,
       ""
     );
     return this.encodeThreadId({
       conversationId: baseConversationId,
+      conversationType,
       serviceUrl,
     });
   }
@@ -1694,6 +1692,16 @@ export class TeamsAdapter implements Adapter<TeamsThreadId, unknown> {
     return encodeThreadId(platformData);
   }
 
+  private threadIdFromActivity(activity: Activity): string {
+    return this.encodeThreadId({
+      conversationId: activity.conversation?.id || "",
+      conversationType: parseConversationType(
+        activity.conversation?.conversationType
+      ),
+      serviceUrl: activity.serviceUrl || "",
+    });
+  }
+
   isDM(threadId: string): boolean {
     return isDM(threadId);
   }
@@ -1704,10 +1712,7 @@ export class TeamsAdapter implements Adapter<TeamsThreadId, unknown> {
 
   parseMessage(raw: unknown): Message<unknown> {
     const activity = raw as Activity;
-    const threadId = this.encodeThreadId({
-      conversationId: activity.conversation?.id || "",
-      serviceUrl: activity.serviceUrl || "",
-    });
+    const threadId = this.threadIdFromActivity(activity);
     return this.parseTeamsMessage(activity, threadId);
   }
 
